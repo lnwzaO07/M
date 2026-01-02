@@ -1,5 +1,5 @@
 local s = {
-    [2548183080] = {
+    [6735572261] = {
         "https://protected-roblox-scripts.onrender.com/8ac4a41f97a334f757b469b889043320",
         "https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"
     },
