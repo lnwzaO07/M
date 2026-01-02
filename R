@@ -1,15 +1,6 @@
-local s = {
-    [6735572261] = {
-        "https://protected-roblox-scripts.onrender.com/8ac4a41f97a334f757b469b889043320",
-        "https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"
-    },
-    [000] = {"000"},
-    [000] = {"000"}
-}
+local G = game.PlaceId
 
-local u = s[game.PlaceId]
-if u then
-    for _, url in ipairs(u) do
-        loadstring(game:HttpGet(url))()
-    end
+if G == 6735572261 then
+    loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"))()
 end
+
