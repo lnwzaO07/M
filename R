@@ -1,0 +1,15 @@
+local s = {
+    [2548183080] = {
+        "https://protected-roblox-scripts.onrender.com/4f4aa739a7a45f1700d5c870f4ba11e3",
+        "https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"
+    },
+    [000] = {"000"},
+    [000] = {"000"}
+}
+
+local u = s[game.PlaceId]
+if u then
+    for _, url in ipairs(u) do
+        loadstring(game:HttpGet(url))()
+    end
+end
