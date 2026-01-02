@@ -1,1 +1,5 @@
 if game.PlaceId==6735572261 then loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"))() end; for _,id in pairs({2753915549,4442272183,7449423635}) do if game.PlaceId==id then loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/634b34ee45b417a72d48abbd7e415198"))() break end end
+
+function EP()
+print("6")
+end
