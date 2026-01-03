@@ -9,10 +9,8 @@
 if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
     _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 = true
 
-    if game.PlaceId == 321279858 then
+    
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/41f9cc54277cae1b2a6a3250699365ea"))()
-    end
-
     if game.PlaceId == 6735572261 then
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"))()
     end
