@@ -6,5 +6,5 @@ if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
     
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/41f9cc54277cae1b2a6a3250699365ea"))()
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"))()
-        loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/634b34ee45b417a72d48abbd7e415198"))()
+        loadstring(game:HttpGet("https://pastefy.app/Max9HJAc/raw"))()
 end
